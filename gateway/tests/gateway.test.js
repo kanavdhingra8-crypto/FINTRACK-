@@ -16,6 +16,19 @@ upstreamApp.use((req, res) => {
   });
 });
 
+function accessToken(userId) {
+  return jwt.sign(
+    { tokenType: 'access' },
+    env.JWT_ACCESS_SECRET,
+    {
+      subject: userId,
+      issuer: 'fintrack-auth-service',
+      audience: 'fintrack-api',
+      expiresIn: '5m',
+    },
+  );
+}
+
 beforeAll(async () => {
   upstreamServer = await new Promise((resolve) => {
     const server = upstreamApp.listen(0, () => resolve(server));
@@ -58,19 +71,9 @@ test('rejects a protected API request when the access token is missing', async (
 
 test('proxies only the verified user ID and a gateway-generated request ID', async () => {
   const verifiedUserId = '1234567890abcdef12345678';
-  const token = jwt.sign(
-    { tokenType: 'access' },
-    env.JWT_ACCESS_SECRET,
-    {
-      subject: verifiedUserId,
-      issuer: 'fintrack-auth-service',
-      audience: 'fintrack-api',
-      expiresIn: '5m',
-    },
-  );
   const response = await request(app)
     .post('/api/transactions')
-    .set('Authorization', `Bearer ${token}`)
+    .set('Authorization', `Bearer ${accessToken(verifiedUserId)}`)
     .set('x-user-id', 'aaaaaaaaaaaaaaaaaaaaaaaa')
     .set('x-request-id', 'client-controlled-id')
     .send({ amount: 25 });
@@ -81,6 +84,18 @@ test('proxies only the verified user ID and a gateway-generated request ID', asy
   expect(response.body.requestId).toBe(response.headers['x-request-id']);
   expect(response.body.requestId).not.toBe('client-controlled-id');
   expect(response.body.body).toEqual({ amount: 25 });
+});
+
+test('rewrites notification threshold requests to the settings endpoint', async () => {
+  const verifiedUserId = '1234567890abcdef12345678';
+  const response = await request(app)
+    .put('/api/notifications/settings/threshold')
+    .set('Authorization', `Bearer ${accessToken(verifiedUserId)}`)
+    .send({ threshold: 20000 });
+
+  expect(response.status).toBe(200);
+  expect(response.body.path).toBe('/settings/threshold');
+  expect(response.body.userId).toBe(verifiedUserId);
 });
 
 test('allows public registration without forwarding a client user ID', async () => {

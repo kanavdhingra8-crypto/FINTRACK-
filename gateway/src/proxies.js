@@ -50,7 +50,9 @@ const notificationProxy = createServiceProxy(
   'notification-service',
   env.NOTIFICATION_SERVICE_URL,
   (path) => path === '/api/notifications' || path.startsWith('/api/notifications/'),
-  (path) => path.replace(/^\/api/, ''),
+  (path) => path
+    .replace(/^\/api\/notifications\/settings\/threshold/, '/settings/threshold')
+    .replace(/^\/api/, ''),
 );
 
 module.exports = { authProxy, transactionProxy, notificationProxy };

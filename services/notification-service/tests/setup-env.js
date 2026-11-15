@@ -1,0 +1,10 @@
+process.env.NODE_ENV = 'test';
+process.env.NOTIFICATION_PORT = '4003';
+process.env.NOTIFICATION_MONGODB_URI = 'mongodb://127.0.0.1:27017/fintrack_notifications_test';
+process.env.RABBITMQ_URL = 'amqp://127.0.0.1:1';
+process.env.RABBITMQ_EXPENSE_QUEUE = 'fintrack.expense.created.test';
+process.env.RABBITMQ_CONNECT_TIMEOUT_MS = '500';
+process.env.RABBITMQ_RECONNECT_DELAY_MS = '3000';
+process.env.RABBITMQ_RETRY_DELAY_MS = '1000';
+process.env.DEFAULT_EXPENSE_THRESHOLD = '10000';
+process.env.LOG_LEVEL = 'silent';

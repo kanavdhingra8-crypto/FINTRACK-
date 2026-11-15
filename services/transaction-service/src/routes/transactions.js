@@ -64,7 +64,7 @@ router.get('/', validateRequest({ query: listQuerySchema }), asyncHandler(async 
 }));
 
 router.post('/', validateRequest({ body: transactionFields }), asyncHandler(async (req, res) => {
-  const transaction = await createTransaction(req.userId, req.validated.body);
+  const transaction = await createTransaction(req.userId, req.validated.body, req.log);
   return res.status(201).json({ transaction });
 }));
 

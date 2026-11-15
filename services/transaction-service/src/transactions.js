@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { ApiError } = require('./errors');
 const Transaction = require('./models/transaction');
+const { publishExpenseCreated } = require('./publisher');
 
 function moneyToDecimal(amount) {
   // Store money as Decimal128 so database totals do not accumulate float errors.
@@ -36,7 +37,7 @@ function decimalToNumber(value) {
   return value ? Number(value.toString()) : 0;
 }
 
-async function createTransaction(userId, input) {
+async function createTransaction(userId, input, requestLogger) {
   const transaction = await Transaction.create({
     userId,
     amount: moneyToDecimal(input.amount),
@@ -46,7 +47,18 @@ async function createTransaction(userId, input) {
     ...(input.note === undefined ? {} : { note: input.note }),
   });
 
-  return serializeTransaction(transaction);
+  const result = serializeTransaction(transaction);
+  if (input.type === 'expense') {
+    await publishExpenseCreated({
+      userId: result.userId,
+      transactionId: result.id,
+      amount: result.amount,
+      category: result.category,
+      date: result.date,
+    }, requestLogger);
+  }
+
+  return result;
 }
 
 async function listTransactions(userId, filters) {
