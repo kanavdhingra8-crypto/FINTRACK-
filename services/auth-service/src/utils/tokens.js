@@ -9,6 +9,7 @@ function createTokenPair(userId) {
     audience: 'fintrack-api',
   };
 
+  // Separate keys and token types prevent access tokens from refreshing sessions.
   return {
     accessToken: jwt.sign(
       { tokenType: 'access' },

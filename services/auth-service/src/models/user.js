@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
   passwordHash: {
     type: String,
     required: true,
+    // Login opts in to this field; regular user queries never return it.
     select: false,
   },
 }, {
