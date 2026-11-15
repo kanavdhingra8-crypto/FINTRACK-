@@ -1,0 +1,540 @@
+openapi: 3.0.3
+info:
+  title: FinTrack API
+  description: Public API exposed by the FinTrack gateway.
+  version: 1.0.0
+servers:
+  - url: http://localhost:4000
+    description: Local Docker Compose gateway
+tags:
+  - name: Health
+  - name: Authentication
+  - name: Transactions
+  - name: Notifications
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Check gateway health
+      responses:
+        "200":
+          description: Gateway is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "201":
+          description: Account created and token pair returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "200":
+          description: Logged in and token pair returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /api/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Exchange a refresh token for a new token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: New token pair returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /api/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get the signed-in user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /api/transactions:
+    get:
+      tags: [Transactions]
+      summary: List the signed-in user's transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          description: Filter by calendar month.
+          schema:
+            type: string
+            pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"
+            example: "2026-11"
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [income, expense]
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        "200":
+          description: Transactions and pagination metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [transactions, pagination]
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Transaction"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    post:
+      tags: [Transactions]
+      summary: Create a transaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionInput"
+      responses:
+        "201":
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/Transaction"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /api/transactions/summary:
+    get:
+      tags: [Transactions]
+      summary: Get totals and category totals for a month
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"
+            example: "2026-11"
+      responses:
+        "200":
+          description: Monthly totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlySummary"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /api/transactions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^[a-fA-F0-9]{24}$"
+    put:
+      tags: [Transactions]
+      summary: Update a transaction
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionUpdate"
+      responses:
+        "200":
+          description: Updated transaction
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    $ref: "#/components/schemas/Transaction"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      tags: [Transactions]
+      summary: Delete a transaction
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Transaction deleted
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications and unread count
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notifications for the signed-in user
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notifications, unreadCount]
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  unreadCount:
+                    type: integer
+                    minimum: 0
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /api/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark a notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-fA-F0-9]{24}$"
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notification:
+                    $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /api/notifications/settings/threshold:
+    put:
+      tags: [Notifications]
+      summary: Set the expense alert threshold in INR
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [threshold]
+              properties:
+                threshold:
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 1000000000000
+                  example: 10000
+      responses:
+        "200":
+          description: Saved threshold
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  threshold:
+                    type: number
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    ApiError:
+      description: Request failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    Health:
+      type: object
+      required: [service, status]
+      properties:
+        service:
+          type: string
+          example: gateway
+        status:
+          type: string
+          example: ok
+    ApiError:
+      type: object
+      required: [error, requestId]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Request validation failed
+        requestId:
+          type: string
+    Credentials:
+      type: object
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+    User:
+      type: object
+      required: [id, email, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+    AuthResponse:
+      type: object
+      required: [user, accessToken, refreshToken]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+    TransactionInput:
+      type: object
+      required: [amount, type, category, date]
+      additionalProperties: false
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 1000000000000
+          description: INR amount with at most two decimal places.
+        type:
+          type: string
+          enum: [income, expense]
+        category:
+          type: string
+          minLength: 1
+          maxLength: 50
+        date:
+          type: string
+          format: date
+        note:
+          type: string
+          maxLength: 500
+    TransactionUpdate:
+      type: object
+      description: Send one or more transaction fields; at least one is required.
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          maximum: 1000000000000
+          description: INR amount with at most two decimal places.
+        type:
+          type: string
+          enum: [income, expense]
+        category:
+          type: string
+          minLength: 1
+          maxLength: 50
+        date:
+          type: string
+          format: date
+        note:
+          type: string
+          maxLength: 500
+    Transaction:
+      allOf:
+        - $ref: "#/components/schemas/TransactionInput"
+        - type: object
+          required: [id, userId, createdAt, updatedAt]
+          properties:
+            id:
+              type: string
+            userId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+    MonthlySummary:
+      type: object
+      required: [month, totalIncome, totalExpense, balance, categories]
+      properties:
+        month:
+          type: string
+          example: "2026-11"
+        totalIncome:
+          type: number
+        totalExpense:
+          type: number
+        balance:
+          type: number
+        categories:
+          type: array
+          items:
+            type: object
+            required: [category, income, expense]
+            properties:
+              category:
+                type: string
+              income:
+                type: number
+              expense:
+                type: number
+    Notification:
+      type: object
+      required: [id, userId, transactionId, amount, category, date, isRead, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        transactionId:
+          type: string
+        amount:
+          type: number
+        category:
+          type: string
+        date:
+          type: string
+          format: date
+        isRead:
+          type: boolean
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
