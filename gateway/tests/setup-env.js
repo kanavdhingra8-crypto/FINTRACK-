@@ -1,0 +1,10 @@
+process.env.NODE_ENV = 'test';
+process.env.GATEWAY_PORT = '4000';
+process.env.AUTH_SERVICE_URL = 'http://127.0.0.1:4101';
+process.env.TRANSACTION_SERVICE_URL = 'http://127.0.0.1:4102';
+process.env.NOTIFICATION_SERVICE_URL = 'http://127.0.0.1:4103';
+process.env.JWT_ACCESS_SECRET = 'test-access-secret-with-at-least-32-characters';
+process.env.CORS_ORIGIN = 'http://localhost:5173';
+process.env.RATE_LIMIT_WINDOW_MS = '60000';
+process.env.RATE_LIMIT_MAX = '100';
+process.env.LOG_LEVEL = 'silent';
